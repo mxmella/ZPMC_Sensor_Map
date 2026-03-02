@@ -35,8 +35,11 @@
 </head>
 <body class="h-screen flex overflow-hidden font-sans text-sm">
 
+    <!-- Overlay para móvil (Fondo oscuro al abrir menú) -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
     <!-- Sidebar de Navegación -->
-    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-xl">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-30 shadow-xl transform -translate-x-full md:translate-x-0 transition-transform duration-300 md:relative">
         <div class="p-6 border-b border-slate-800">
             <h1 class="text-2xl font-black text-white tracking-tighter flex items-center gap-2">
                 <span class="text-primary text-3xl">⚡</span> ZPMC <span class="text-primary">MAP</span>
@@ -81,8 +84,13 @@
     <main class="flex-1 flex flex-col relative overflow-hidden bg-[#0f172a]">
         
         <!-- Top Bar -->
-        <header class="h-16 bg-slate-900/80 backdrop-blur border-b border-slate-800 flex items-center justify-between px-6 z-10">
-            <div class="flex items-center gap-4 w-1/2">
+        <header class="h-16 bg-slate-900/80 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 md:px-6 z-10 gap-4">
+            <!-- Botón Menú Móvil -->
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">
+                <span class="text-2xl">☰</span>
+            </button>
+
+            <div class="flex items-center gap-4 flex-1">
                 <div class="relative w-full max-w-md">
                     <span class="absolute left-3 top-2.5 text-slate-500">🔍</span>
                     <input type="text" id="buscador" placeholder="Buscar Tag, Potencia, PLC (ej: M1, 30KW, I50.0)..." 
@@ -100,7 +108,7 @@
         <div class="flex-1 overflow-y-auto p-6">
             
             <!-- KPI Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="glass-panel p-4 rounded-xl border-l-4 border-primary relative overflow-hidden group">
                     <div class="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity text-4xl">📦</div>
                     <h3 class="text-slate-400 text-xs uppercase font-bold tracking-wider">Total Activos</h3>
@@ -124,7 +132,7 @@
             </div>
 
             <!-- Tabla de Datos -->
-            <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[calc(100vh-240px)]">
+            <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[500px] md:h-[calc(100vh-240px)]">
                 <div class="overflow-auto flex-1">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-950 sticky top-0 z-10 shadow-md">
@@ -153,7 +161,7 @@
         </div>
 
         <!-- Panel Deslizante del Asistente -->
-        <div id="assistantPanel" class="absolute top-0 right-0 w-96 h-full bg-slate-900 border-l border-primary/30 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+        <div id="assistantPanel" class="absolute top-0 right-0 w-full md:w-96 h-full bg-slate-900 border-l border-primary/30 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
             <div class="p-4 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
                 <h2 class="text-primary font-bold flex items-center gap-2">
                     <span class="animate-pulse">●</span> ASISTENTE IA
@@ -408,6 +416,19 @@
             }
         }
 
+        // Función para alternar el menú lateral en móviles
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
         // 2. Función de Validación Cruzada
         function validarSistema(codigoSistema, datosDetectados) {
             const configReal = VALIDACION_FISICA[codigoSistema];
@@ -572,6 +593,12 @@
         function filtrarZona(zona) {
             document.getElementById('filtroUbicacion').value = zona; // Guardar estado (simulado)
             filtrar(zona);
+            
+            // UX: Cerrar sidebar automáticamente en móviles al seleccionar una opción
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
         }
 
         function filtrar(zonaForzada = null) {
