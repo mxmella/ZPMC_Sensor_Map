@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZPMC Sensor Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' },
+                        primary: '#06b6d4', // Cyan-500
+                        secondary: '#3b82f6', // Blue-500
+                        accent: '#f59e0b', // Amber-500
+                        danger: '#ef4444', // Red-500
+                        success: '#10b981' // Emerald-500
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(148, 163, 184, 0.1); }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden font-sans text-sm">
+
+    <!-- Sidebar de Navegación -->
+    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-xl">
+        <div class="p-6 border-b border-slate-800">
+            <h1 class="text-2xl font-black text-white tracking-tighter flex items-center gap-2">
+                <span class="text-primary text-3xl">⚡</span> ZPMC <span class="text-primary">MAP</span>
+            </h1>
+            <p class="text-slate-500 text-xs mt-1 font-mono">Digital Twin v2.0</p>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <div class="text-xs font-bold text-slate-500 uppercase mb-2 px-2">Sistemas Principales</div>
+            <button onclick="filtrarZona('')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">🌍</span> Vista General
+            </button>
+            <button onclick="filtrarZona('Hoist')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">🏗️</span> Main Hoist
+            </button>
+            <button onclick="filtrarZona('Gantry')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">🚜</span> Gantry Travel
+            </button>
+            <button onclick="filtrarZona('Trolley')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">🚋</span> Main Trolley
+            </button>
+            <button onclick="filtrarZona('Boom')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">📐</span> Boom Hoist
+            </button>
+            <button onclick="filtrarZona('Spreader')" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-3 group">
+                <span class="group-hover:text-primary">🔒</span> Spreader
+            </button>
+            
+            <div class="mt-6 text-xs font-bold text-slate-500 uppercase mb-2 px-2">Herramientas</div>
+            <button onclick="toggleAssistant()" class="w-full text-left px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors flex items-center gap-3">
+                <span>🤖</span> Asistente IA
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <div class="text-[10px] text-slate-500 mb-1">Base de Datos</div>
+            <div id="fechaDb" class="text-xs text-slate-300 font-mono">Cargando...</div>
+        </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 flex flex-col relative overflow-hidden bg-[#0f172a]">
+        
+        <!-- Top Bar -->
+        <header class="h-16 bg-slate-900/80 backdrop-blur border-b border-slate-800 flex items-center justify-between px-6 z-10">
+            <div class="flex items-center gap-4 w-1/2">
+                <div class="relative w-full max-w-md">
+                    <span class="absolute left-3 top-2.5 text-slate-500">🔍</span>
+                    <input type="text" id="buscador" placeholder="Buscar Tag, Potencia, PLC (ej: M1, 30KW, I50.0)..." 
+                        class="w-full bg-slate-800 border border-slate-700 text-white pl-10 pr-4 py-2 rounded-full text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="exportarExcel()" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-600/50 px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2">
+                    <span>📊</span> Excel
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-primary relative overflow-hidden group">
+                    <div class="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity text-4xl">📦</div>
+                    <h3 class="text-slate-400 text-xs uppercase font-bold tracking-wider">Total Activos</h3>
+                    <p class="text-3xl font-black text-white mt-1" id="statTotal">0</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-secondary relative overflow-hidden group">
+                    <div class="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity text-4xl">⚙️</div>
+                    <h3 class="text-slate-400 text-xs uppercase font-bold tracking-wider">Motores Detectados</h3>
+                    <p class="text-3xl font-black text-white mt-1" id="statMotors">0</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-accent relative overflow-hidden group">
+                    <div class="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity text-4xl">⚡</div>
+                    <h3 class="text-slate-400 text-xs uppercase font-bold tracking-wider">VFDs / Drives</h3>
+                    <p class="text-3xl font-black text-white mt-1" id="statVFDs">0</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-success relative overflow-hidden group">
+                    <div class="absolute right-2 top-2 opacity-10 group-hover:opacity-20 transition-opacity text-4xl">🔌</div>
+                    <h3 class="text-slate-400 text-xs uppercase font-bold tracking-wider">I/O PLC</h3>
+                    <p class="text-3xl font-black text-white mt-1" id="statIO">0</p>
+                </div>
+            </div>
+
+            <!-- Tabla de Datos -->
+            <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[calc(100vh-240px)]">
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-950 sticky top-0 z-10 shadow-md">
+                            <tr class="text-slate-400 text-xs uppercase tracking-wider">
+                                <th class="p-4 font-bold border-b border-slate-800">TAG</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Tipo</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Potencia</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Voltaje</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Ubicación</th>
+                                <th class="p-4 font-bold border-b border-slate-800">PLC Addr</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Plano</th>
+                                <th class="p-4 font-bold border-b border-slate-800">Descripción / Contexto</th>
+                                <th class="p-4 font-bold border-b border-slate-800 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaCuerpo" class="divide-y divide-slate-800 text-sm text-slate-300">
+                            <tr><td colspan="9" class="p-10 text-center text-slate-500 animate-pulse">Cargando base de datos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-2 bg-slate-950 border-t border-slate-800 text-xs text-slate-500 flex justify-between px-4">
+                    <span id="contador">0 registros</span>
+                    <span>ZPMC Digital Map v2.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Deslizante del Asistente -->
+        <div id="assistantPanel" class="absolute top-0 right-0 w-96 h-full bg-slate-900 border-l border-primary/30 shadow-2xl transform translate-x-full transition-transform duration-300 z-50 flex flex-col">
+            <div class="p-4 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
+                <h2 class="text-primary font-bold flex items-center gap-2">
+                    <span class="animate-pulse">●</span> ASISTENTE IA
+                </h2>
+                <button onclick="toggleAssistant()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-4" id="respuestaIA">
+                <div class="text-slate-500 text-center text-xs mt-10">
+                    <p class="mb-2">👋 Hola, soy tu copiloto técnico.</p>
+                    <p>Pregúntame por fallas (ej: "F102"), componentes (ej: "M1") o sistemas.</p>
+                    
+                    <!-- Preguntas Pre-escritas -->
+                    <div class="grid grid-cols-2 gap-2 mt-6 px-4 text-left">
+                        <button onclick="consultarIA('Resumen de arquitectura')" class="bg-slate-800 hover:bg-slate-700 text-primary border border-slate-700 rounded p-2 text-xs transition-colors">
+                            📊 Resumen General
+                        </button>
+                        <button onclick="consultarIA('Falla F102')" class="bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700 rounded p-2 text-xs transition-colors">
+                            ⚠️ Falla F102
+                        </button>
+                        <button onclick="consultarIA('Motor M1')" class="bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 rounded p-2 text-xs transition-colors">
+                            ⚙️ Motor M1
+                        </button>
+                        <button onclick="consultarIA('Sistema Hoist')" class="bg-slate-800 hover:bg-slate-700 text-accent border border-slate-700 rounded p-2 text-xs transition-colors">
+                            🏗️ Sistema Hoist
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-950">
+                <div class="relative">
+                    <input type="text" id="preguntaIA" placeholder="Escribe tu consulta..." 
+                           class="w-full bg-slate-800 border border-slate-700 text-white p-3 pr-10 rounded-lg text-sm focus:border-primary outline-none"
+                           onkeypress="if(event.key === 'Enter') consultarIA()">
+                    <button onclick="consultarIA()" class="absolute right-2 top-2 text-primary hover:text-white">➤</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal de Diagramas -->
+    <div id="diagramaModal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-[60]" onclick="cerrarDiagrama(event)">
+        <div class="bg-gray-800 p-2 rounded-lg max-w-5xl w-full mx-4 relative border border-gray-600 shadow-2xl">
+            <button onclick="cerrarDiagrama()" class="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl font-bold z-10">&times;</button>
+            <h2 id="diagramaTitulo" class="text-lg font-bold text-accent mb-2 px-2">Diagrama</h2>
+            <img id="diagramaImagen" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Esquema" class="w-full h-auto max-h-[80vh] object-contain rounded bg-gray-900">
+        </div>
+    </div>
+
+    <!-- Cargar base de datos como script JS para evitar bloqueo CORS -->
+    <script src="output/sensores_db.js"></script>
+
+    <script>
+        let safeDatos = [];
+
+        // Base de Conocimiento de Fallas ZPMC (Códigos Típicos)
+        const ZPMC_FAULTS = {
+            "Hoist": [
+                "<b>F301</b>: Overspeed (Revisar Encoder/Acople)",
+                "<b>F305</b>: Brake Feedback Error (Ajuste de microswitch)",
+                "<b>F310</b>: Inverter Fault (Ver panel VFD en E-House)",
+                "<b>F332</b>: Slack Rope (Cable flojo detectado)"
+            ],
+            "Gantry": [
+                "<b>F102</b>: Gantry Skew Error (Desalineación > 5%)",
+                "<b>F108</b>: Collision Sensor Activated (Sensor láser/bumper)",
+                "<b>F112</b>: Motor Overload (Posible freno pegado)",
+                "<b>F155</b>: Rail Clamp Released Fault (Tenazas no abrieron)"
+            ],
+            "Boom": [
+                "<b>F203</b>: Boom Latch Fault (Cerrojo no abrió/cerró)",
+                "<b>F204</b>: Boom Anchor Fault (Anclaje de seguridad puesto)",
+                "<b>F220</b>: Boom Up Slowdown Limit (Límite de pre-parada)"
+            ],
+            "Trolley": [
+                "<b>F406</b>: Trolley End Stop (Tope final alcanzado)",
+                "<b>F415</b>: Trolley Tension Fault (Tensión de cable)",
+                "<b>F410</b>: Inverter Fault (Falla en variador)"
+            ],
+            "Spreader": [
+                "<b>F530</b>: Twistlock Fault (No giró completamente)",
+                "<b>F531</b>: Landing Pin Fault (No asentó en esquinas)",
+                "<b>F540</b>: Pump Pressure Low (Baja presión hidráulica)"
+            ]
+        };
+
+        // NUEVO: Archivo de Verdad (Validación Física)
+        const VALIDACION_FISICA = {
+            "010": { nombre: "Main Hoist", motores: 2, frenos: 6 }, // 4 servicio + 2 emergencia
+            "020": { nombre: "Trolley", motores: 1, frenos: 2 },
+            "030": { nombre: "Boom", motores: 1, frenos: 2 },
+            "040": { nombre: "Gantry", motores: 16, frenos: 16 },
+            "070": { nombre: "Spreader", motores: 1, frenos: 0 } // Motor de bomba hidráulica
+        };
+
+        // NUEVO: Análisis Estático de Planos Coronel (Base de Conocimiento Experta)
+        const ANALISIS_PLANOS_CORONEL = {
+            sistemas: {
+                "010": {
+                    nombre: "Main Hoist",
+                    motores_reales: 2,
+                    tags_motores: ["010.M1", "010.M2"],
+                    descripcion: "Elevación principal. Configuración de 2 motores en tándem con frenos de disco de emergencia (Storm Brakes).",
+                    rango_paginas: "100 - 180"
+                },
+                "020": {
+                    nombre: "Main Trolley",
+                    motores_reales: 1,
+                    tags_motores: ["020.M1"],
+                    descripcion: "Traslación de carro. 1 Motor y 2 Frenos de servicio.",
+                    rango_paginas: "190 - 240"
+                },
+                "030": {
+                    nombre: "Boom Hoist",
+                    motores_reales: 1,
+                    tags_motores: ["030.M1"],
+                    descripcion: "Levante de pluma. Cuenta con sistema de enclavamiento de seguridad (Latch).",
+                    rango_paginas: "250 - 310"
+                },
+                "040": {
+                    nombre: "Gantry",
+                    motores_reales: 16,
+                    tags_motores: Array.from({length: 16}, (_, i) => `040.M${i+1}`),
+                    descripcion: "Traslación de grúa. 16 Motores (4 por pata), 16 Frenos, 4 Sensores láser.",
+                    rango_paginas: "320 - 450"
+                },
+                "070": {
+                    nombre: "Spreader",
+                    motores_reales: 1,
+                    tags_motores: [],
+                    descripcion: "Spreader. 1 Bomba Hidráulica, 4 Twistlocks, 4 Landing pins.",
+                    rango_paginas: "600 - 680"
+                }
+            },
+            obtenerResumen: function(codigo) {
+                return this.sistemas[codigo] || null;
+            }
+        };
+
+        // NUEVO: Conocimiento Específico de Componentes (Base de Datos Experta)
+        const CONOCIMIENTO_GRUAS = {
+            "010.M1": {
+                nombre: "Motor Hoist Principal 1",
+                plano: "Folio 105",
+                manual: "Sección 4.2 - Lubricación",
+                falla_comun: "Sobretemperatura por suciedad en filtros de aire.",
+                validación: "Físicamente existen 2 motores en este sistema."
+            }
+        };
+
+        // NUEVO: Base de Datos de Sistemas (Mantenimiento y Tips)
+        const DB_SISTEMAS = {
+            "040": {
+                nombre: "Sistema de Gantry",
+                planos: "Páginas 320-450",
+                manual_mtto: "Capítulo 8: Engrase de piñones",
+                sensores_criticos: ["SQ1", "SQ2", "Láser Anticolisión"],
+                pips_experto: "Si la grúa se desvía, verifica que los 16 frenos estén liberando simultáneamente."
+            }
+        };
+
+        // NUEVO: Diccionario de Sinónimos para IA (Traductor Lenguaje Natural -> Código ZPMC)
+        const DICCIONARIO_IA = {
+            "elevacion": "010", "subir": "010", "hoist": "010",
+            "carro": "020", "trolley": "020",
+            "pluma": "030", "boom": "030",
+            "patas": "040", "traslacion": "040", "gantry": "040",
+            "pinzas": "070", "spreader": "070"
+        };
+
+        // NUEVO: Base de Conocimiento Específica Coronel (Spreader P2P)
+        const BASE_CONOCIMIENTO_CORONEL = {
+            "sistema_070": {
+                nombre: "Spreader P2P",
+                plano_ref: "1002000152 drawing.pdf",
+                folios_clave: ["Folio 1: Power Supply", "Folio 2: Pump Control"],
+                manual_ref: "STS_Electrical Maintenance Manual.pdf",
+                procedimiento_falla: "Apéndice G: Células de carga (Pág. 50)",
+                componentes: {
+                    "PUMP": { tag: "-P1", potencia: "7.5KW", tension: "380V" },
+                    "HEATER": { tag: "-EH1", descripcion: "Motor Heater" }
+                }
+            }
+        };
+
+        // NUEVO: Sabiduría del Manual de Mantenimiento (Apéndice G y Estaciones)
+        const MANUAL_EXPERT = {
+            "LOAD_CELL": {
+                tipo: "Sensor de Carga",
+                falla: "Corriente 0mA / < 4mA",
+                causa: "Cable dañado, amplificador interno o configuración incorrecta.",
+                accion: "Verificar continuidad en bornera -X101 (Folio 1). Revisar Apéndice G.",
+                pagina_manual: 50
+            },
+            "-P1": { // Bomba Hidráulica Spreader
+                tipo: "Bomba Hidráulica",
+                mantenimiento: "Mensual",
+                accion: "Verificar presión de trabajo y estado del filtro -W104. Si motor gira sin presión, revisar acople.",
+                pagina_manual: 12
+            }
+        };
+
+        // NUEVO: Base de Conocimiento General (Saber Hacer)
+        const KNOWLEDGE_BASE_IA = {
+            sensores_carga: {
+                titulo: "Sistema de Pesaje (Load Cells)",
+                diagnostico: "Si hay diferencia de peso > 2 ton, recalibrar amplificador.",
+                manual: "Apéndice G - Página 50",
+                accion: "Verificar celdas de carga en Twistlocks.",
+                ubicacion_esperada: "Spreader"
+            },
+            sistema_hidraulico_spreader: {
+                titulo: "Hidráulica Spreader (-P1)",
+                diagnostico: "Bomba no levanta presión.",
+                manual: "Capítulo 7 - Hidráulica",
+                accion: "Revisar nivel de aceite y filtro de retorno.",
+                ubicacion_esperada: "Spreader"
+            }
+        };
+
+        // NUEVO: Reglas de Experto (Diagnóstico Específico)
+        const REGLAS_EXPERTO = {
+            "CARGA_0MA": "Diagnóstico: Cable cortado o amplificador quemado. Ubicación: Bornera -X101.",
+            "CARGA_UNDER_4MA": "Diagnóstico: Sensor descalibrado o invertido. Acción: Reconfigurar según Manual Pág. 50."
+        };
+
+        const FICHA_GANTRY_REAL = {
+            total_motores: 20,
+            distribucion: "10 por lado (Mar/Tierra)",
+            verificacion_critica: "Sincronismo de 20 variadores o grupos de potencia.",
+            nota_expert: "Configuración especial ZPMC Coronel detectada por escaneo de planos."
+        };
+
+        const ARQUITECTURA_GANTRY = {
+            variadores: ["VFD_Lado_Mar", "VFD_Lado_Tierra"],
+            motores_por_vfd: 10,
+            configuracion_bogies: "4 bogies por lado (3-2-2-3 motores)",
+            alerta_ia: "Falla en VFD afecta a 10 motores simultáneamente. Verificar desequilibrio de carga entre patas."
+        };
+
+        // Verificamos si los datos se cargaron correctamente desde el archivo JS
+        if (typeof datosSensores === 'undefined') {
+            document.getElementById('tablaCuerpo').innerHTML = `<tr><td colspan="8" class="p-6 text-center text-red-400">⚠️ No se encontró la base de datos.<br>Ejecuta <code>python extractor.py</code> para generar los archivos.</td></tr>`;
+        } else {
+            safeDatos = datosSensores;
+            calcularEstadisticas();
+            renderizarTabla(safeDatos);
+            
+            // Mostrar fecha si existe
+            if (typeof fechaGeneracion !== 'undefined') {
+                document.getElementById('fechaDb').innerText = `📅 ${fechaGeneracion}`;
+            }
+        }
+
+        // 2. Función de Validación Cruzada
+        function validarSistema(codigoSistema, datosDetectados) {
+            const configReal = VALIDACION_FISICA[codigoSistema];
+            if (!configReal) return null;
+
+            // Contamos cuántos motores únicos (M1, M2...) detectó el script en este sistema
+            const motoresUnicos = [...new Set(
+                datosDetectados
+                    .filter(d => (d.funcion_planta || "").includes(codigoSistema) && d.tag.startsWith("M"))
+                    .map(d => d.tag)
+            )];
+            const motoresDetectados = motoresUnicos.length;
+
+            // Contamos cuántos frenos únicos (Y...) detectó el script en este sistema
+            const frenosUnicos = [...new Set(
+                datosDetectados
+                    .filter(d => (d.funcion_planta || "").includes(codigoSistema) && d.tag.startsWith("Y"))
+                    .map(d => d.tag)
+            )];
+            const frenosDetectados = frenosUnicos.length;
+
+            const motoresOk = motoresDetectados === configReal.motores;
+            const frenosOk = frenosDetectados === configReal.frenos;
+            const esValido = motoresOk && frenosOk;
+
+            let mensaje = esValido ? `✅ Motores (${motoresDetectados}) y Frenos (${frenosDetectados}) verificados.` : "";
+            if (!esValido) {
+                if (!motoresOk) mensaje += `⚠️ Motores: PDF ${motoresDetectados} / Real ${configReal.motores}.<br>`;
+                if (!frenosOk) mensaje += `⚠️ Frenos: PDF ${frenosDetectados} / Real ${configReal.frenos}.`;
+            }
+
+            return {
+                valido: esValido,
+                esperado: configReal.motores,
+                esperadoFrenos: configReal.frenos,
+                detectado: motoresDetectados,
+                detectadoFrenos: frenosDetectados,
+                mensaje: mensaje
+            };
+        }
+
+        // 3. Función de Validación de Consistencia (Lógica de Negocio)
+        function validacionConsistencia(sistema, componente) {
+            // Ejemplo: Si el usuario busca "Motor" en el "Spreader"
+            if (sistema === "070" && componente.includes("motor")) {
+                return "⚠️ Ojo: El Spreader no tiene motores de traslación, funciona con una bomba hidráulica (=070.M1). Revisa el manual de hidráulica.";
+            }
+            return "✅ Consulta coherente con el manual de ZPMC.";
+        }
+
+        function calcularEstadisticas() {
+            document.getElementById('statTotal').innerText = safeDatos.length;
+            
+            const motors = safeDatos.filter(d => d.tag.startsWith("M") && d.tag.length < 6).length;
+            const vfds = safeDatos.filter(d => d.tag.startsWith("U") || d.tag.startsWith("VFD")).length;
+            const io = safeDatos.filter(d => d.direccion_plc && d.direccion_plc !== "No detectado").length;
+
+            document.getElementById('statMotors').innerText = motors;
+            document.getElementById('statVFDs').innerText = vfds;
+            document.getElementById('statIO').innerText = io;
+        }
+
+        function renderizarArquitectura() {
+            if (typeof reporteSistemas === 'undefined') return;
+            
+            const panel = document.getElementById('panelArquitectura');
+            panel.innerHTML = '';
+            panel.classList.remove('hidden');
+
+            for (const [sistema, datos] of Object.entries(reporteSistemas)) {
+                if (datos.motores === 0 && datos.sensores === 0) continue;
+                
+                panel.innerHTML += `
+                    <div class="bg-gray-800 p-3 rounded border border-gray-700">
+                        <h4 class="text-accent font-bold text-sm mb-1">${sistema}</h4>
+                        <div class="text-xs text-gray-400">Motores: <span class="text-white font-bold">${datos.motores}</span></div>
+                        <div class="text-xs text-gray-400">Sensores: <span class="text-white font-bold">${datos.sensores}</span></div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderizarTabla(data, highlightTerm = "") {
+            const tbody = document.getElementById('tablaCuerpo');
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500">No se encontraron coincidencias.</td></tr>`;
+                return;
+            }
+
+            // Optimización: Usar .map().join('') para hacer UNA sola inserción en el DOM
+            const filasHTML = data.map(item => {
+                // Estilo visual diferente si es texto general o un Tag real
+                const esTexto = item.tag === 'TEXTO';
+                const claseTag = esTexto ? 'text-slate-500 font-normal text-xs' : 'font-bold text-primary';
+                
+                // Determinar término a resaltar en el PDF (Búsqueda > Tag > PLC)
+                let terminoPdf = "";
+                if (highlightTerm && highlightTerm.length > 1) terminoPdf = highlightTerm;
+                else if (item.tag !== 'TEXTO') terminoPdf = item.tag;
+                else if (item.direccion_plc && item.direccion_plc !== 'No detectado') terminoPdf = item.direccion_plc;
+
+                // Creamos el enlace: carpeta data + nombre archivo (codificado por si tiene espacios) + #page=N
+                const linkPdf = `data/${encodeURIComponent(item.archivo)}#page=${item.folio_plano}&search=${encodeURIComponent(terminoPdf)}`;
+
+                // Función para resaltar texto
+                const resaltar = (texto) => {
+                    if (!highlightTerm || highlightTerm.length < 2) return texto;
+                    const regex = new RegExp(`(${highlightTerm})`, 'gi');
+                    return texto.replace(regex, '<span class="bg-primary/30 text-white px-1 rounded-sm">$1</span>');
+                };
+
+                // Escapar comillas para el onclick del portapapeles
+                const terminoSafe = terminoPdf.replace(/'/g, "\\'");
+
+                // Badge de Tipo
+                let tipoBadge = `<span class="text-xs text-slate-400">${item.tipo || '-'}</span>`;
+                if (item.tag.startsWith("M")) tipoBadge = `<span class="bg-red-900/40 text-red-300 px-2 py-0.5 rounded text-[10px] font-bold border border-red-900">MOTOR</span>`;
+                else if (item.tag.startsWith("U")) tipoBadge = `<span class="bg-orange-900/40 text-orange-300 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-900">DRIVE</span>`;
+                else if (item.direccion_plc && item.direccion_plc !== "No detectado") tipoBadge = `<span class="bg-emerald-900/40 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-900">PLC I/O</span>`;
+
+                // Potencia Badge
+                let potenciaHtml = item.potencia ? `<span class="text-white font-mono font-bold">${item.potencia}</span>` : '<span class="text-slate-600">-</span>';
+
+                return `
+                    <tr class="hover:bg-slate-800 transition-colors border-b border-slate-800/50">
+                        <td class="p-4 ${claseTag}">${resaltar(item.tag)}</td>
+                        <td class="p-4">${tipoBadge}</td>
+                        <td class="p-4 text-xs">${potenciaHtml}</td>
+                        <td class="p-4 text-xs text-yellow-500 font-mono">${item.voltaje || '-'}</td>
+                        <td class="p-4 text-xs text-white font-bold">
+                            <div class="flex flex-col">
+                                <span>${resaltar(item.ubicacion_real || '-')}</span>
+                                <span class="text-[10px] text-slate-500">${resaltar(item.funcion_planta || '')}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-primary font-mono text-xs">${resaltar(item.direccion_plc)}</td>
+                        <td class="p-4">
+                            <a href="${linkPdf}" target="_blank" 
+                               onclick="navigator.clipboard.writeText('${terminoSafe}')"
+                               class="text-secondary hover:text-white hover:underline flex items-center gap-1 text-xs font-bold" 
+                               title="Abrir PDF (Copia '${terminoPdf}' al portapapeles para buscar con Ctrl+F)">
+                                Pág. ${item.folio_plano} ↗
+                            </a>
+                        </td>
+                        <td class="p-4 text-slate-400 text-xs truncate max-w-xs" title="${item.descripcion_encontrada}">
+                            ${resaltar(item.descripcion_encontrada)}
+                            ${item.descripcion_pagina ? `<div class="text-[10px] text-slate-600 mt-1">${item.descripcion_pagina}</div>` : ''}
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="copiarFila('${item.tag}', '${item.folio_plano}', '${item.archivo}')" class="text-slate-500 hover:text-white" title="Copiar info">📋</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            tbody.innerHTML = filasHTML;
+            document.getElementById('contador').innerText = `${data.length} registros encontrados`;
+        }
+
+        function filtrarZona(zona) {
+            document.getElementById('filtroUbicacion').value = zona; // Guardar estado (simulado)
+            filtrar(zona);
+        }
+
+        function filtrar(zonaForzada = null) {
+            const texto = document.getElementById('buscador').value.toLowerCase();
+            // Usamos una variable global o atributo para la zona si no se pasa
+            const zona = (zonaForzada !== null ? zonaForzada : document.getElementById('filtroUbicacion').value).toLowerCase();
+
+            const filtrados = safeDatos.filter(item => {
+                const descPagina = (item.descripcion_pagina || "").toLowerCase();
+                const objLoc = (item.ubicacion_objeto || "").toLowerCase();
+                const itemFunc = (item.funcion_planta || "").toLowerCase();
+                const coincideTexto = item.tag.toLowerCase().includes(texto) || 
+                                      item.direccion_plc.toLowerCase().includes(texto) || 
+                                      item.descripcion_encontrada.toLowerCase().includes(texto) ||
+                                      descPagina.includes(texto) ||
+                                      objLoc.includes(texto);
+                
+                // Búsqueda heurística de zona en la descripción o nombre de archivo
+                const coincideZona = zona === "" || 
+                                     item.descripcion_encontrada.toLowerCase().includes(zona) || 
+                                     item.archivo.toLowerCase().includes(zona) ||
+                                     descPagina.includes(zona) ||
+                                     objLoc.includes(zona) ||
+                                     (item.ubicacion_real || "").toLowerCase().includes(zona);
+                
+                return coincideTexto && coincideZona;
+            });
+            renderizarTabla(filtrados, texto);
+        }
+
+        function copiarFila(tag, pag, archivo) {
+            const texto = `Tag: ${tag} | Plano: ${archivo} (Pág ${pag})`;
+            navigator.clipboard.writeText(texto).then(() => alert("Copiado: " + texto));
+        }
+
+        function exportarExcel() {
+            const ws = XLSX.utils.json_to_sheet(safeDatos);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sensores ZPMC");
+            XLSX.writeFile(wb, "ZPMC_Master_List.xlsx");
+        }
+
+        // --- Lógica del Visor de Diagramas ---
+        function verDiagrama(sistema) {
+            const modal = document.getElementById('diagramaModal');
+            const img = document.getElementById('diagramaImagen');
+            const titulo = document.getElementById('diagramaTitulo');
+            
+            titulo.innerText = `Diagrama: ${sistema.toUpperCase()}`;
+            // Intenta cargar la imagen desde la carpeta images/ (ej: images/gantry.png)
+            img.src = `images/${sistema.toLowerCase()}.png`;
+            img.onerror = function() { 
+                this.src = 'https://via.placeholder.com/800x400/1f2937/fbbf24?text=Imagen+No+Encontrada+(Crear+carpeta+images)'; 
+            };
+            
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarDiagrama(e) {
+            // Si se pasa un evento (click en backdrop), verificar que no sea un click interno (burbujeo)
+            // Si e es undefined (botón X), cerramos directamente
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('diagramaModal').classList.add('hidden');
+        }
+
+        // --- Lógica del Asistente Inteligente (Consola Superior) ---
+        function consultarIA(consultaExterna) {
+            const pregunta = document.getElementById('preguntaIA').value.toLowerCase();
+            const respuestaBox = document.getElementById('respuestaIA'); // Ahora es el contenedor del chat
+            
+            // Abrir panel si está cerrado
+            document.getElementById('assistantPanel').classList.remove('translate-x-full');
+
+            // Si viene de un botón, usamos ese texto
+            let textoConsulta = pregunta;
+            if (typeof consultaExterna === 'string') {
+                textoConsulta = consultaExterna.toLowerCase();
+                document.getElementById('preguntaIA').value = consultaExterna; // Feedback visual
+            }
+
+            let htmlRespuesta = "";
+            
+            // Detectar intención de búsqueda de fallas
+            const esConsultaFalla = textoConsulta.includes("falla") || textoConsulta.includes("fault") || textoConsulta.includes("error") || textoConsulta.includes("alarma") || textoConsulta.includes("codigo");
+
+            // Detectar código de falla específico (ej: F102)
+            const matchCodigo = textoConsulta.match(/\b(f\d+)\b/i);
+            if (matchCodigo) {
+                const codigoBuscado = matchCodigo[1].toUpperCase();
+                let fallaEncontrada = null;
+                let sistemaEncontrado = "";
+
+                for (const [sistema, listaFallas] of Object.entries(ZPMC_FAULTS)) {
+                    const match = listaFallas.find(f => f.toUpperCase().includes(codigoBuscado));
+                    if (match) {
+                        fallaEncontrada = match;
+                        sistemaEncontrado = sistema;
+                        break;
+                    }
+                }
+
+                if (fallaEncontrada) {
+                    htmlRespuesta = `<div class="border-l-4 border-red-500 pl-4"><h3 class="text-red-400 font-bold text-lg mb-2">⚠️ Código de Falla: ${codigoBuscado}</h3><p class="text-gray-300 text-sm mb-2">Pertenece al sistema: <b class="text-white">${sistemaEncontrado}</b></p><div class="bg-gray-900 p-3 rounded text-sm text-white border border-gray-700">${fallaEncontrada}</div></div>`;
+                } else {
+                    htmlRespuesta = `<div class="text-yellow-400">⚠️ El código <b>${codigoBuscado}</b> no aparece en la lista de fallas comunes. Revisa el manual del fabricante.</div>`;
+                }
+                agregarMensajeChat(htmlRespuesta);
+                return;
+            }
+
+            // --- NUEVO: Reporte de Arquitectura (Resumen de Extracción) ---
+            if (textoConsulta.includes("resumen") || textoConsulta.includes("arquitectura") || textoConsulta.includes("reporte")) {
+                if (typeof reporteSistemas !== 'undefined') {
+                    let tablaResumen = `<table class="w-full text-xs text-left mt-3 border-collapse">
+                        <thead class="text-gray-500 border-b border-gray-700"><tr><th class="py-1">Sistema</th><th class="text-right">Mot</th><th class="text-right">Sens</th></tr></thead>
+                        <tbody class="text-gray-300 divide-y divide-gray-800">`;
+                    
+                    for (const [sys, data] of Object.entries(reporteSistemas)) {
+                        if (data.motores > 0 || data.sensores > 0) {
+                            tablaResumen += `<tr><td class="py-2">${sys.split('(')[0]}</td><td class="text-right text-accent font-bold">${data.motores}</td><td class="text-right text-blue-400 font-bold">${data.sensores}</td></tr>`;
+                        }
+                    }
+                    tablaResumen += `</tbody></table>`;
+                    
+                    htmlRespuesta = `<div class="bg-gray-800 p-3 rounded border border-gray-600">
+                        <h3 class="text-white font-bold mb-1 flex items-center gap-2"><span class="text-xl">📊</span> Arquitectura Detectada</h3>
+                        <p class="text-[10px] text-gray-400">Resumen de activos extraídos de los 3 archivos procesados.</p>
+                        ${tablaResumen}
+                    </div>`;
+                    agregarMensajeChat(htmlRespuesta);
+                    return;
+                }
+            }
+
+            // --- Motor de Búsqueda Inteligente (Lógica Unificada) ---
+            let guiaIA = null;
+            if (textoConsulta.includes("carga") || textoConsulta.includes("load")) {
+                guiaIA = KNOWLEDGE_BASE_IA.sensores_carga;
+            } else if (textoConsulta.includes("p1") || textoConsulta.includes("bomba")) {
+                guiaIA = KNOWLEDGE_BASE_IA.sistema_hidraulico_spreader;
+            }
+
+            // Inyectar reglas de experto si aplica
+            let reglasHtml = "";
+            if (textoConsulta.includes("carga") || textoConsulta.includes("load")) {
+                 reglasHtml = `<div class="mt-2 pt-2 border-t border-gray-600">
+                    <div class="text-xs text-red-300 font-bold">⚠️ Reglas Críticas (Apéndice G):</div>
+                    <ul class="text-xs text-gray-400 list-disc pl-4"><li>${REGLAS_EXPERTO.CARGA_0MA}</li><li>${REGLAS_EXPERTO.CARGA_UNDER_4MA}</li></ul>
+                 </div>`;
+            }
+
+            if (guiaIA) {
+                // 1. Buscamos en los registros del plano (Python)
+                const resultadoPlano = safeDatos.find(r => r.tag.toUpperCase().includes(textoConsulta.toUpperCase()) && r.tag !== 'TEXTO');
+                
+                let htmlPlano = "";
+                let alertaConflicto = "";
+
+                if (resultadoPlano) {
+                    // Validación de Conflicto de Documentación
+                    if (guiaIA.ubicacion_esperada && resultadoPlano.ubicacion_real) {
+                        if (!resultadoPlano.ubicacion_real.toUpperCase().includes(guiaIA.ubicacion_esperada.toUpperCase())) {
+                            alertaConflicto = `<div class="mt-2 p-2 bg-red-900/40 border border-red-600 rounded text-xs text-red-200 flex items-center gap-2">
+                                <span class="text-xl">🛑</span> 
+                                <div><b>Conflicto de Documentación:</b><br>El manual ubica esto en <b>${guiaIA.ubicacion_esperada}</b>, pero el plano lo detecta en <b>${resultadoPlano.ubicacion_real}</b>.</div>
+                            </div>`;
+                        }
+                    }
+
+                    htmlPlano = `<div class="bg-gray-700/50 p-3 rounded border border-gray-600 mt-3">
+                        <span class="block text-gray-400 text-xs font-bold uppercase mb-1">Hallazgo en Plano:</span>
+                        <div class="text-white font-bold">${resultadoPlano.tag}</div>
+                        <div class="text-xs text-gray-300">Pág. ${resultadoPlano.folio_plano} - ${resultadoPlano.descripcion_encontrada}</div>
+                        <div class="text-xs text-gray-400 mt-1">Ubicación detectada: ${resultadoPlano.ubicacion_real}</div>
+                    </div>`;
+                }
+
+                htmlRespuesta = `
+                    <div class="border-l-4 border-purple-500 pl-4 bg-gray-800/50 p-2 rounded">
+                        <h3 class="text-purple-400 font-bold text-lg mb-2">🧠 Saber Hacer: ${guiaIA.titulo}</h3>
+                        <ul class="text-sm text-gray-300 space-y-2">
+                            <li><b>Diagnóstico:</b> ${guiaIA.diagnostico}</li>
+                            <li><b>Manual:</b> ${guiaIA.manual}</li>
+                            <li><b>Acción:</b> ${guiaIA.accion}</li>
+                        </ul>
+                        ${reglasHtml}
+                        ${htmlPlano}
+                        ${alertaConflicto}
+                    </div>
+                `;
+                agregarMensajeChat(htmlRespuesta);
+                return;
+            }
+
+            // Detectar componente específico (ej: M1, SQ10, Y3)
+            const matchComponente = textoConsulta.match(/\b([a-z]{1,3}\d+)\b/i);
+            if (matchComponente) {
+                const tagBuscado = matchComponente[1].toUpperCase();
+                const componentes = safeDatos.filter(d => d.tag === tagBuscado);
+                
+                if (componentes.length > 0) {
+                    // Separar por origen (Plano vs Manual)
+                    const hitsPlanos = componentes.filter(c => !c.archivo.toLowerCase().includes("manual"));
+                    const hitsManual = componentes.filter(c => c.archivo.toLowerCase().includes("manual"));
+                    
+                    const comp = hitsPlanos.length > 0 ? hitsPlanos[0] : componentes[0]; // Preferir datos del plano para encabezado
+                    
+                    const uniquePages = [...new Set(hitsPlanos.map(c => c.folio_plano))].sort((a,b)=>a-b).join(", ");
+                    const uniqueDescriptions = [...new Set(hitsPlanos.map(c => c.descripcion_encontrada).filter(d => d && d.length > 5))];
+                    
+                    // Extraer specs de la descripción (KW, HP, Amperios)
+                    let specsHtml = "";
+                    if (comp.voltaje) specsHtml += `<span class="bg-yellow-600 text-black px-2 py-0.5 rounded text-xs font-bold mr-2">⚡ ${comp.voltaje}</span>`;
+                    
+                    const descText = uniqueDescriptions.join(" ");
+                    const powerMatch = descText.match(/\b(\d+(\.\d+)?\s*(KW|HP))\b/i);
+                    const currentMatch = descText.match(/\b(\d+(\.\d+)?\s*A)\b/i);
+                    
+                    if (powerMatch) specsHtml += `<span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold mr-2">🚀 ${powerMatch[0].toUpperCase()}</span>`;
+                    if (currentMatch) specsHtml += `<span class="bg-green-600 text-white px-2 py-0.5 rounded text-xs font-bold mr-2">🔌 ${currentMatch[0].toUpperCase()}</span>`;
+
+                    // Buscar en MANUAL_EXPERT (Diagnóstico Inteligente)
+                    let diagnosticoHtml = "";
+                    // Intentar buscar por tag exacto o por tipo (ej: LOAD CELL)
+                    const experto = MANUAL_EXPERT[tagBuscado] || (tagBuscado.includes("LOAD") ? MANUAL_EXPERT["LOAD_CELL"] : null);
+
+                    if (experto) {
+                        diagnosticoHtml = `<div class="mt-3 pt-2 border-t border-gray-700 bg-purple-900/20 p-2 rounded">
+                            <h4 class="text-purple-300 font-bold text-xs uppercase mb-1">🔧 Diagnóstico del Manual (Pág. ${experto.pagina_manual}):</h4>
+                            <ul class="text-xs text-gray-300 space-y-1">
+                                <li><b>Componente:</b> ${experto.tipo}</li>
+                                ${experto.falla ? `<li><b>Falla Típica:</b> ${experto.falla}</li>` : ''}
+                                ${experto.causa ? `<li><b>Causa Probable:</b> ${experto.causa}</li>` : ''}
+                                <li><b>Acción Recomendada:</b> ${experto.accion}</li>
+                            </ul>
+                        </div>`;
+                    }
+
+                    // Generar HTML para referencias encontradas en el Manual PDF escaneado
+                    let manualExtraccionHtml = "";
+                    if (hitsManual.length > 0) {
+                        manualExtraccionHtml = `<div class="mt-3 pt-2 border-t border-gray-700 bg-indigo-900/30 p-2 rounded">
+                            <h4 class="text-indigo-300 font-bold text-xs uppercase mb-1">📚 Hallazgos en Manual PDF:</h4>
+                            <ul class="text-xs text-gray-300 space-y-2">
+                                ${hitsManual.slice(0, 3).map(m => `
+                                    <li class="border-l-2 border-indigo-500 pl-2">
+                                        <span class="text-indigo-200 font-bold">Pág. ${m.folio_plano}:</span> 
+                                        "${m.descripcion_encontrada.substring(0, 80)}..."
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>`;
+                    }
+
+                    // Buscar conocimiento experto
+                    let infoExpertaHtml = "";
+                    const sistemaClean = (comp.funcion_planta || "").replace('=', '');
+                    const keyConocimiento = `${sistemaClean}.${tagBuscado}`;
+                    const infoExperta = CONOCIMIENTO_GRUAS[keyConocimiento];
+
+                    if (infoExperta) {
+                        infoExpertaHtml = `<div class="mt-3 pt-2 border-t border-gray-700 bg-blue-900/20 p-2 rounded">
+                            <h4 class="text-blue-300 font-bold text-xs uppercase mb-1">🧠 Conocimiento Experto:</h4>
+                            <ul class="text-xs text-gray-300 space-y-1">
+                                <li><b>Nombre:</b> ${infoExperta.nombre}</li>
+                                <li><b>Manual:</b> ${infoExperta.manual}</li>
+                                <li><b>Falla Común:</b> ${infoExperta.falla_comun}</li>
+                                <li><b>Nota:</b> ${infoExperta.validación}</li>
+                            </ul>
+                        </div>`;
+                    }
+
+                    htmlRespuesta = `
+                        <div class="border-l-4 border-accent pl-4 bg-gray-800/50 p-2 rounded">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-accent font-bold text-xl">${tagBuscado}</h3>
+                                    <div class="text-sm text-gray-400 italic">${comp.tipo || 'Componente'}</div>
+                                </div>
+                                <div class="text-right">${specsHtml}</div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mt-3 text-sm">
+                                <div><span class="text-gray-500 uppercase text-xs font-bold">Ubicación:</span><br><span class="text-white">${comp.ubicacion_real || 'General'}</span></div>
+                                <div><span class="text-gray-500 uppercase text-xs font-bold">Planos:</span><br><span class="text-accent font-mono">${uniquePages}</span></div>
+                            </div>
+                            ${uniqueDescriptions.length > 0 ? `<div class="mt-3 pt-2 border-t border-gray-700"><span class="text-gray-500 uppercase text-xs font-bold">Contexto / Specs:</span><ul class="list-disc pl-4 text-gray-300 text-xs mt-1 space-y-1">${uniqueDescriptions.slice(0, 4).map(d => `<li>${d}</li>`).join('')}</ul></div>` : ''}
+                            ${diagnosticoHtml}
+                            ${manualExtraccionHtml}
+                            ${infoExpertaHtml}
+                        </div>
+                    `;
+                    agregarMensajeChat(htmlRespuesta);
+                    return;
+                }
+            }
+
+            // Función auxiliar para contar componentes por sistema
+            const contar = (codigo, tipo) => safeDatos.filter(d => (d.funcion_planta || "").includes(codigo) && d.tag.startsWith(tipo)).length;
+            const buscarFolios = (codigo) => {
+                const folios = safeDatos.filter(d => (d.funcion_planta || "").includes(codigo)).map(d => d.folio_plano);
+                return folios.length ? `${Math.min(...folios)} al ${Math.max(...folios)}` : "No detectado";
+            };
+            
+            // Helper para formatear lista de fallas
+            const mostrarFallas = (sistema) => {
+                const lista = ZPMC_FAULTS[sistema] || ["No hay información de fallas específicas para este sistema."];
+                return `
+                    <div class="border-l-4 border-red-500 pl-4">
+                        <h3 class="text-red-400 font-bold text-lg mb-2">⚠️ Fallas Comunes: ${sistema.toUpperCase()}</h3>
+                        <ul class="list-disc pl-5 text-gray-300 text-sm space-y-2">
+                            ${lista.map(f => `<li>${f}</li>`).join('')}
+                        </ul>
+                        <p class="text-xs text-gray-500 mt-3">Revisa la pantalla del CMS o el HMI en la cabina para confirmar el código exacto.</p>
+                    </div>
+                `;
+            };
+
+            // Nueva lógica unificada usando ANALISIS_PLANOS_CORONEL
+            let sistemaCodigo = null;
+            // 1. Traducir lenguaje humano a código ZPMC usando DICCIONARIO_IA
+            for (let clave in DICCIONARIO_IA) {
+                if (textoConsulta.includes(clave)) {
+                    sistemaCodigo = DICCIONARIO_IA[clave];
+                    break;
+                }
+            }
+
+            if (sistemaCodigo) {
+                const infoEstatica = ANALISIS_PLANOS_CORONEL.obtenerResumen(sistemaCodigo);
+                const infoMantenimiento = DB_SISTEMAS[sistemaCodigo];
+                const infoCoronel = BASE_CONOCIMIENTO_CORONEL[`sistema_${sistemaCodigo}`];
+                let htmlMantenimiento = "";
+                
+                if (infoMantenimiento) {
+                    htmlMantenimiento = `<div class="mt-3 pt-2 border-t border-gray-700 bg-green-900/20 p-2 rounded">
+                        <h4 class="text-green-300 font-bold text-xs uppercase mb-1">🛠️ Mantenimiento & Tips:</h4>
+                        <ul class="text-xs text-gray-300 space-y-1">
+                            <li><b>Manual:</b> ${infoMantenimiento.manual_mtto}</li>
+                            <li><b>Sensores Críticos:</b> ${infoMantenimiento.sensores_criticos.join(", ")}</li>
+                            <li><b>Tip Experto:</b> ${infoMantenimiento.pips_experto}</li>
+                        </ul>
+                    </div>`;
+                }
+
+                let htmlCoronel = "";
+                if (infoCoronel) {
+                    htmlCoronel = `<div class="mt-3 pt-2 border-t border-gray-700 bg-indigo-900/20 p-2 rounded">
+                        <h4 class="text-indigo-300 font-bold text-xs uppercase mb-1">📂 Documentación Específica:</h4>
+                        <ul class="text-xs text-gray-300 space-y-1">
+                            <li><b>Sistema:</b> ${infoCoronel.nombre}</li>
+                            <li><b>Manual:</b> ${infoCoronel.manual_ref}</li>
+                            <li><b>Proc. Falla:</b> ${infoCoronel.procedimiento_falla}</li>
+                        </ul>
+                    </div>`;
+                }
+
+                const validacion = validarSistema(sistemaCodigo, safeDatos);
+                // Mapeo simple para buscar fallas en ZPMC_FAULTS
+                const mapNames = {"010": "Hoist", "040": "Gantry", "030": "Boom", "020": "Trolley", "070": "Spreader"};
+
+                // Validación de Consistencia (Reglas de Negocio)
+                let htmlConsistencia = "";
+                if (textoConsulta.includes("motor")) {
+                    const msgConsistencia = validacionConsistencia(sistemaCodigo, "motor");
+                    if (msgConsistencia.includes("⚠️")) {
+                        htmlConsistencia = `<div class="mt-2 p-2 bg-orange-900/40 border border-orange-600 rounded text-xs text-orange-200 flex items-center gap-2">${msgConsistencia}</div>`;
+                    }
+                }
+                
+                if (esConsultaFalla) {
+                    htmlRespuesta = mostrarFallas(mapNames[sistemaCodigo]);
+                } else {
+                    // Conteo dinámico del PDF
+                    const motoresDetectados = safeDatos.filter(d => 
+                        (d.funcion_planta || "").includes(sistemaCodigo) && d.tag.startsWith("M")
+                    );
+                    // Ordenar motores numéricamente (M1, M2... M10)
+                    const listaMotores = [...new Set(motoresDetectados.map(m => m.tag))].sort((a, b) => {
+                        const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                        const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                        return numA - numB;
+                    });
+                    const conteoRealPDF = listaMotores.length;
+                    
+                    // Detección de VFDs (Variadores de Frecuencia)
+                    const vfdsDetectados = safeDatos.filter(d => 
+                        (d.funcion_planta || "").includes(sistemaCodigo) && (d.tag.startsWith("U") || d.tag.startsWith("VFD"))
+                    );
+                    const conteoVFDs = new Set(vfdsDetectados.map(v => v.tag)).size;
+
+                    const frenosDetectados = safeDatos.filter(d => 
+                        (d.funcion_planta || "").includes(sistemaCodigo) && d.tag.startsWith("Y")
+                    );
+                    const conteoFrenosPDF = new Set(frenosDetectados.map(f => f.tag)).size;
+
+                    const foliosPDF = buscarFolios(sistemaCodigo);
+
+                    // Validaciones de Seguridad (Sensores sin PLC)
+                    const sensoresSinPLC = safeDatos.filter(d => 
+                        (d.funcion_planta || "").includes(sistemaCodigo) && 
+                        /^(SQ|LS|B|PX)/.test(d.tag) && 
+                        (!d.direccion_plc || d.direccion_plc === "No detectado")
+                    ).length;
+
+                    // Generar HTML de estado de validación
+                    let estadoValidacionHtml = "";
+                    if (validacion) {
+                        estadoValidacionHtml = validacion.valido 
+                            ? `<div class="mt-2 p-2 bg-green-900/30 border border-green-600 rounded text-xs text-green-200 font-bold flex items-center gap-2"><span class="text-lg">🟢</span> ESTADO: VALIDADO OK - ${validacion.mensaje}</div>`
+                            : `<div class="mt-2 p-2 bg-red-900/40 border border-red-600 rounded text-xs text-red-200 font-bold flex items-center gap-2"><span class="text-lg">🔴</span> ESTADO: ERROR DE VALIDACIÓN<br><span class="font-normal text-gray-300 ml-1">${validacion.mensaje}</span></div>`;
+                    }
+
+                    // Crear el menú desplegable para los detalles
+                    const detallesDesplegables = `
+                        <details class="bg-gray-900/50 rounded border border-gray-700 mt-3">
+                            <summary class="p-3 cursor-pointer font-bold text-sm text-gray-300 hover:bg-gray-700 rounded-t flex items-center gap-2">
+                                <span class="text-lg">👇</span> Análisis y Validación de Datos del PDF
+                            </summary>
+                            <div class="p-3 border-t border-gray-600 space-y-3">
+                                <div class="grid grid-cols-2 gap-3 text-sm">
+                                    <div class="bg-gray-700/50 p-3 rounded border border-gray-600">
+                                        <span class="block text-gray-400 text-xs font-bold uppercase mb-1">Hallazgos en PDF</span>
+                                        <div class="flex gap-4">
+                                            <div><span class="text-white text-2xl font-mono font-bold">${conteoRealPDF}</span> <span class="text-xs text-gray-400">Motores</span></div>
+                                            ${conteoVFDs > 0 ? `<div><span class="text-yellow-400 text-2xl font-mono font-bold">${conteoVFDs}</span> <span class="text-xs text-gray-400">VFDs</span></div>` : ''}
+                                        </div>
+                                        ${conteoRealPDF > 5 ? `
+                                            <details class="mt-2">
+                                                <summary class="text-[10px] text-accent cursor-pointer hover:underline">Ver lista de tags</summary>
+                                                <div class="text-[10px] text-gray-300 mt-1 p-1 bg-black/30 rounded max-h-24 overflow-y-auto font-mono break-words">
+                                                    ${listaMotores.join(', ')}
+                                                </div>
+                                            </details>` 
+                                        : ''}
+                                    </div>
+                                    <div class="bg-gray-700/50 p-3 rounded border border-gray-600">
+                                        <span class="block text-gray-400 text-xs font-bold uppercase mb-1">Ubicación Planos</span>
+                                        <span class="text-accent font-mono text-lg">${foliosPDF}</span>
+                                    </div>
+                                </div>
+                                ${estadoValidacionHtml}
+                            </div>
+                        </details>
+                    `;
+
+                    htmlRespuesta = `
+                        <div class="space-y-3">
+                            <div class="border-b border-gray-700 pb-2">
+                                <div class="font-bold text-accent text-xl flex justify-between items-center">
+                                    <span>${infoEstatica ? infoEstatica.nombre.toUpperCase() : "SISTEMA"} (=${sistemaCodigo})</span>
+                                    <span class="text-xs bg-blue-900 text-blue-100 px-2 py-1 rounded border border-blue-700">Realidad Física: ${validacion ? validacion.esperado : "?"} Motores</span>
+                                </div>
+                                <p class="text-sm text-gray-300 mt-1 italic">"${infoEstatica ? infoEstatica.descripcion : ""}"</p>
+                            </div>
+                            ${detallesDesplegables}
+                            ${htmlConsistencia}
+                            ${htmlMantenimiento}
+                            ${htmlCoronel}
+                            ${sensoresSinPLC > 0 ? `<div class="mt-2 p-2 bg-yellow-900/30 border border-yellow-600 rounded text-xs text-yellow-200">⚠️ <b>Seguridad:</b> Se detectaron ${sensoresSinPLC} sensores sin dirección PLC (posible cableado directo).</div>` : ''}
+                            <div class="text-xs text-gray-500 text-right">Rango esperado según manual: ${infoEstatica ? infoEstatica.rango_paginas : "N/A"}</div>
+                        </div>
+                    `;
+                }
+                agregarMensajeChat(htmlRespuesta);
+                return;
+            }
+
+            htmlRespuesta = "Lo siento, no reconozco esa parte. Intenta con: <b>Gantry, Hoist, Boom, Trolley o Spreader</b>.";
+            agregarMensajeChat(htmlRespuesta);
+        }
+
+        function agregarMensajeChat(html) {
+            const chat = document.getElementById('respuestaIA');
+            const div = document.createElement('div');
+            div.className = "mb-4 animate-fade-in-up";
+            div.innerHTML = html;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function toggleAssistant() {
+            const panel = document.getElementById('assistantPanel');
+            if (panel.classList.contains('translate-x-full')) {
+                panel.classList.remove('translate-x-full');
+            } else {
+                panel.classList.add('translate-x-full');
+            }
+        }
+
+        // Input oculto para compatibilidad con funciones anteriores
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.id = 'filtroUbicacion';
+        document.body.appendChild(hiddenInput);
+
+        // Event Listeners
+        let debounceTimer;
+        document.getElementById('buscador').addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => filtrar(), 300);
+        });
+    </script>
+</body>
+</html>
