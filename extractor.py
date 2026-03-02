@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "sensores_db.json")
+OUTPUT_FILE = os.path.join(BASE_DIR, "sensores_db.json")
 
 # Asegurar que existan los directorios
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -309,7 +309,7 @@ def extraer_sensores():
 
     # Guardar también como archivo JS para evitar errores de CORS al abrir index.html localmente
     # Ahora incluimos el reporte de sistemas en el JS
-    OUTPUT_JS_FILE = os.path.join(OUTPUT_DIR, "sensores_db.js")
+    OUTPUT_JS_FILE = os.path.join(BASE_DIR, "sensores_db.js")
     
     # Convertir sets a conteos para JSON
     reporte_export = {}
