@@ -512,7 +512,7 @@
                 else if (item.direccion_plc && item.direccion_plc !== 'No detectado') terminoPdf = item.direccion_plc;
 
                 // Creamos el enlace: carpeta data + nombre archivo (codificado por si tiene espacios) + #page=N
-                const linkPdf = `data/${encodeURIComponent(item.archivo)}#page=${item.folio_plano}&search=${encodeURIComponent(terminoPdf)}`;
+                const linkPdf = `${encodeURIComponent(item.archivo)}#page=${item.folio_plano}&search=${encodeURIComponent(terminoPdf)}`;
 
                 // Función para resaltar texto
                 const resaltar = (texto) => {

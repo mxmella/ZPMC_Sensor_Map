@@ -8,7 +8,7 @@ import datetime
 
 # Configuración de directorios
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+DATA_DIR = BASE_DIR
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
 OUTPUT_FILE = os.path.join(BASE_DIR, "sensores_db.json")
